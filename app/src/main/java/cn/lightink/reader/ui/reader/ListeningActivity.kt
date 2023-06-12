@@ -146,8 +146,8 @@ class ListeningActivity : LifecycleActivity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
         unbindService(connection)
+        super.onDestroy()
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)

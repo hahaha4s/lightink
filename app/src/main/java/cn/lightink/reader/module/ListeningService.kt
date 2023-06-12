@@ -28,8 +28,9 @@ class ListeningService : Service(), TextToSpeech.OnInitListener {
     private var book: Book? = null
     private var bookSource: BookSourceParser? = null
     private val purifyList = mutableListOf<Purify>()
+    // 书籍章节目录
     private var catalog = emptyList<Chapter>()
-    private var current = 0
+    private var currentChapterIndex = 0
 
     //TTS变量声明
     private var status = STATUS_IDLE
@@ -233,20 +234,38 @@ class ListeningService : Service(), TextToSpeech.OnInitListener {
      * 图书相关
      ***********************************************************************************************
      * 读取章节
+     *
+     * @param isNewChapter 读取的是否是新的（另外的）章节
      */
-    private fun loadChapter(isNext: Boolean = true) {
-        if (book == null || current + 1 > catalog.lastIndex || book!!.chapter < 0) return
-        current = if (isNext) min(current + 1, catalog.lastIndex) else min(book!!.chapter, catalog.lastIndex)
-        if (current !in 0..catalog.lastIndex) return
-        val chapter = catalog[current]
+    private fun loadChapter(isNewChapter: Boolean = true) {
+        if (book == null || currentChapterIndex + 1 > catalog.lastIndex || book!!.chapter < 0) return
+        val loadChapterIndex = if (isNewChapter) {
+            min(currentChapterIndex + 1, catalog.lastIndex)
+        } else {
+            min(book!!.chapter, catalog.lastIndex)
+        }
+        if (loadChapterIndex !in 0..catalog.lastIndex) return
+        val chapter = catalog[loadChapterIndex]
         if (chapter.href.isBlank()) return loadChapter(true)
         val markdown = convertMarkdown(chapter)
         val list = if (markdown == GET_FAILED_NET_THROWABLE || markdown == GET_FAILED_INVALID_AUTH) {
-            listOf(SpeechCell("读取失败", chapter, 0))
+            if (currentChapterIndex != loadChapterIndex) {
+                listOf(SpeechCell("读取失败: $markdown", chapter, 0))
+            } else {
+                emptyList()
+            }
         } else {
-            convertCells(chapter, markdown, if (!isNext && book!!.chapterProgress < markdown.lastIndex) book!!.chapterProgress else 0)
+            // 读取成功后 currentChapterIndex 才更新
+            currentChapterIndex = loadChapterIndex
+            // 章节内的阅读进度 即从章节内的哪个位置开始朗读，
+            // 如果是当前需要朗读的章节跟上一次朗读的章节（信息保存在数据库内），则从上一次朗读的位置继续朗读
+            // 如果当前需要阅读的是另外一个章节，则 progress = 0
+            val progress = if (!isNewChapter && book!!.chapterProgress < markdown.lastIndex) book!!.chapterProgress else 0
+            // 因为book!!.chapterProgress的值还与阅读的进度有关， 暂时每次进来都从章节的开始读起
+            convertCells(chapter, markdown, 0)
         }
-        if (list.isEmpty()) return loadChapter(isNext)
+        if (list.isEmpty()) return
+//        if (list.isEmpty()) return loadChapter(isNewChapter)
         list.forEach { tts?.speak(it.value, TextToSpeech.QUEUE_ADD, null, it.utteranceId) }
         cells.addAll(list)
     }
@@ -264,7 +283,12 @@ class ListeningService : Service(), TextToSpeech.OnInitListener {
         }
         if (content == GET_FAILED_NET_THROWABLE) return GET_FAILED_NET_THROWABLE
         if (content == GET_FAILED_INVALID_AUTH) return GET_FAILED_INVALID_AUTH
-        if (file.parentFile?.exists() == true && file.exists().not() && content.isNotBlank() && content != GET_FAILED_NET_THROWABLE) file.writeText(content)
+        if (file.parentFile?.exists() == true
+            && file.exists().not()
+            && content.isNotBlank()
+            && content != GET_FAILED_NET_THROWABLE)  {
+            file.writeText(content)
+        }
         content = if (Preferences.get(Preferences.Key.FIRST_LINE_INDENT, true)) {
             "\u3000\u3000" + content.replace(Regex("\n+"), "\n\u3000\u3000").trim()
         } else content.trim()
@@ -287,24 +311,28 @@ class ListeningService : Service(), TextToSpeech.OnInitListener {
         val cells = mutableListOf<SpeechCell>()
         var progress = position
         val cell: SpeechCell? = if (position == 0) SpeechCell(chapter.title, chapter, 0) else null
+        if (cell != null) {
+            cells.add(cell)
+        }
         content.substring(position).split("\n").forEach { paragraph ->
             if (paragraph.startsWith("\u3000\u3000")) progress += 2
             cells.add(SpeechCell(paragraph.removePrefix("\u3000\u3000"), chapter, progress))
             progress += paragraph.length + 1
         }
-        if (cell != null) {
-            cells.add(cell)
-        }
+//        cells.forEach{Log.e("tag" , it.toString())}
+
         return cells
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+
         Notify.unregister(this)
         NotificationHelper.stop(this)
         binder.isActive = false
         tts?.stop()
         tts?.shutdown()
+
+        super.onDestroy()
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
