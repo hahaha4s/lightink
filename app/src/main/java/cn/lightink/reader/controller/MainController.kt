@@ -139,7 +139,7 @@ class MainController : ViewModel() {
                 Log.i("tag", fileName!!)
 
                 // val file = File(book!!.path, "$MP_FOLDER_TEXTS/${chapter.encodeHref}.md")
-                val bookMetadata = MPMetadata(fileName!!, "local", uri.path!!)
+                val bookMetadata = MPMetadata(fileName!!, "local", uri.path!!, state = BOOK_STATE_END)
                 //构造图书对象
                 val book = Book(bookMetadata, bookshelf?.id ?: -1L)
                 val content = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
