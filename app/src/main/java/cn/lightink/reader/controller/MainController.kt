@@ -1,14 +1,20 @@
 package cn.lightink.reader.controller
 
 import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.util.Log
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cn.lightink.reader.BOOK_PATH
+import cn.lightink.reader.ktx.encode
+import cn.lightink.reader.ktx.only
+import cn.lightink.reader.ktx.toJson
 import cn.lightink.reader.model.Book
 import cn.lightink.reader.model.Bookshelf
-import cn.lightink.reader.module.Preferences
-import cn.lightink.reader.module.Room
+import cn.lightink.reader.model.MPMetadata
+import cn.lightink.reader.module.*
 import com.scwang.smartrefresh.layout.constant.RefreshState
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -118,4 +124,121 @@ class MainController : ViewModel() {
         }
     }
 
+    fun addLocalBookToBookshelf(context: Context, uri: Uri, bookshelf: Bookshelf? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            Log.i("tag", uri.path ?: "uri.path is null")
+            // new book
+            var fileName: String? = null
+            val cursor = context.contentResolver.query(uri, null, null, null, null)
+            cursor?.use {
+                if (it.moveToFirst()) {
+                    fileName = it.getString(it.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+                }
+            }
+            if (fileName != null) {
+                Log.i("tag", fileName!!)
+
+                // val file = File(book!!.path, "$MP_FOLDER_TEXTS/${chapter.encodeHref}.md")
+                val bookMetadata = MPMetadata(fileName!!, "local", uri.path!!)
+                //构造图书对象
+                val book = Book(bookMetadata, bookshelf?.id ?: -1L)
+                val content = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                val regex = Regex("第[0-9一二三四五六七八九十百千]+[章节卷集部篇回话]\\s+")
+                val matches = regex.findAll(content!!)
+                //生成输出目录
+                val output = File(BOOK_PATH, bookMetadata.objectId).only()
+                //生成图片文件夹
+                File(output, MP_FOLDER_IMAGES).mkdirs()
+                //生成章节文件夹
+                val chapterDirectory = File(output, MP_FOLDER_TEXTS).apply { mkdirs() }
+
+                val chaptersCount = matches.count()
+                val chapters = MutableList(chaptersCount) { LocalChapter() }
+
+
+                matches.forEachIndexed { index, matchResult ->
+                    when(index) {
+                        0 -> {
+                            val firstChapter = chapters[0]
+                            firstChapter.name = matchResult.value.trim()
+                            firstChapter.start = matchResult.range.last
+                        }
+                        chaptersCount - 1 -> {
+                            val previousChapter = chapters[index - 1]
+                            previousChapter.end = matchResult.range.first
+                            previousChapter.content = content.substring(previousChapter.start, previousChapter.end)
+
+                            val currentChapter = chapters[index]
+                            currentChapter.name = matchResult.value.trim()
+                            currentChapter.start = matchResult.range.last
+
+                            currentChapter.content = content.substring(matchResult.range.last)
+                        }
+                        else -> {
+                            val previousChapter = chapters[index - 1]
+                            previousChapter.end = matchResult.range.first
+                            previousChapter.content = content.substring(previousChapter.start, previousChapter.end)
+
+                            val currentChapter = chapters[index]
+                            currentChapter.name = matchResult.value.trim()
+                            currentChapter.start = matchResult.range.last
+
+                        }
+                    }
+
+                }
+                for (chapter in chapters) {
+                    val chapterPath = "${chapter.name.encode()}.md"
+                    File(chapterDirectory, chapterPath).apply { createNewFile() }.writeText(chapter.content)
+                }
+
+                publish(book, bookMetadata, chapters, output, bookshelf)
+            }
+        }
+    }
+
+
+    /**
+     * 将网络图书转为本地图书
+     * @param bookshelf     指定书架 无数据就是预览模式
+     */
+    fun publish(book: Book, bookMetadata: MPMetadata, chapters: List<LocalChapter>, output: File, bookshelf: Bookshelf? = null) {
+        try {
+
+            //生成目录
+            val catalog = File(output, MP_FILENAME_CATALOG).apply { createNewFile() }
+            chapters.forEach { chapter ->
+//                if (chapter.useLevel) catalog.appendText(MP_CATALOG_INDENTATION)
+                catalog.appendText("* [${chapter.name}](${chapter.name})$MP_ENTER")
+            }
+            //存储元数据
+            File(output, MP_FILENAME_METADATA).writeText(bookMetadata.toJson())
+            //存储书源
+//            bookSource?.run { File(output, MP_FILENAME_BOOK_SOURCE).writeText(toJson()) }
+            //构造图书对象
+            book.isLocal = true
+            book.catalog = chapters.size
+            book.lastChapter = chapters.last().name
+            /*if (URLUtil.isNetworkUrl(baseInfo?.cover ?: metadata.cover)) withContext(Dispatchers.IO) {
+                if (File(book.cover).parentFile?.exists() == false) File(book.cover).parentFile?.mkdirs()
+                try {
+                    Http.download(baseInfo?.cover ?: metadata.cover).data?.run { File(book.cover).writeBytes(this) }
+                } catch (e: Exception) {
+                    //防止超时或其他网络错误
+                }
+            }*/
+            Room.book().insert(book)
+            Room.book().getAll()
+//            Room.bookSource().get(if (bookSource?.url?.startsWith("http") == true) Uri.parse(bookSource?.url)?.host.orEmpty() else bookSource?.url.orEmpty())?.run { Room.bookSource().update(this.apply { frequency += 1 }) }
+        } catch (e: Exception) {
+            //防止写入文件时因缓存删除报错
+        }
+    }
 }
+
+data class LocalChapter(
+    var name: String = "",
+    var start: Int = 0,
+    var end: Int = 0,
+    var content: String = ""
+)

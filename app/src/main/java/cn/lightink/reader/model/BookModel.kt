@@ -40,10 +40,33 @@ import java.io.File
  *  @property createdAt         加入书架时间
  *  @property configuration     配置
  *  @property version           同步版本号
+ *  @property isLocal           是否本地书籍
  */
 @Parcelize
 @Entity(primaryKeys = ["objectId"], indices = [Index("objectId", unique = true)])
-data class Book(val objectId: String, var name: String, var author: String, var link: String, var publishId: String, var bookshelf: Long, var lastChapter: String = EMPTY, var state: Int = BOOK_STATE_IDLE, var catalog: Int = 0, var chapter: Int = 0, var chapterProgress: Int = 0, var chapterName: String = EMPTY, var time: Int = 0, var word: Int = 0, var speed: Float = 0F, var updatedAt: Long = System.currentTimeMillis(), var finishedAt: Long = 0L, var configuration: Long = 0, var createdAt: Long = System.currentTimeMillis(), var version: Int = -1) : Parcelable {
+data class Book(
+    val objectId: String,
+    var name: String,
+    var author: String,
+    var link: String,
+    var publishId: String,
+    var bookshelf: Long,
+    var lastChapter: String = EMPTY,
+    var state: Int = BOOK_STATE_IDLE,
+    var catalog: Int = 0,
+    var chapter: Int = 0,
+    var chapterProgress: Int = 0,
+    var chapterName: String = EMPTY,
+    var time: Int = 0,
+    var word: Int = 0,
+    var speed: Float = 0F,
+    var updatedAt: Long = System.currentTimeMillis(),
+    var finishedAt: Long = 0L,
+    var configuration: Long = 0,
+    var createdAt: Long = System.currentTimeMillis(),
+    var version: Int = -1,
+    var isLocal: Boolean = false
+) : Parcelable {
 
     @Ignore
     @IgnoredOnParcel

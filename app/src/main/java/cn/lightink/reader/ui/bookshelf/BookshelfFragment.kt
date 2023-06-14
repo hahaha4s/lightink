@@ -2,12 +2,15 @@ package cn.lightink.reader.ui.bookshelf
 
 import android.content.Intent
 import android.graphics.drawable.GradientDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.LiveData
@@ -17,6 +20,7 @@ import androidx.recyclerview.widget.DiffUtil
 import cn.lightink.reader.R
 import cn.lightink.reader.controller.FeedController
 import cn.lightink.reader.controller.MainController
+import cn.lightink.reader.databinding.FragmentBookshelfBinding
 import cn.lightink.reader.ktx.alpha
 import cn.lightink.reader.ktx.dominant
 import cn.lightink.reader.ktx.px
@@ -46,8 +50,28 @@ import kotlin.math.min
 
 class BookshelfFragment : LifecycleFragment() {
 
+    private var _binding: FragmentBookshelfBinding? = null
+    // This property is only valid between onCreateView and
+// onDestroyView.
+    private val binding get() = _binding!!
+
+
     private val controller by lazy { ViewModelProvider(activity!!).get(MainController::class.java) }
     private val feedController by lazy { ViewModelProvider(this).get(FeedController::class.java) }
+
+    private val getContent = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        // Handle the returned Uri
+        if (uri != null) {
+            SelectPreferredBookshelfDialog().callback { bookshelf ->
+                    controller.addLocalBookToBookshelf(requireContext(), uri, bookshelf)
+            }.show(requireActivity().supportFragmentManager)
+
+
+        } else {
+            Toast.makeText(requireContext(), "uri is null", Toast.LENGTH_SHORT).show()
+        }
+
+    }
 
     //封面尺寸
     private var span = 3
@@ -63,14 +87,25 @@ class BookshelfFragment : LifecycleFragment() {
     //书架当前的LiveData
     private var mLiveData: LiveData<List<Book>>? = null
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
-        return inflater.inflate(R.layout.fragment_bookshelf, container, false)
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View? {
+        _binding = FragmentBookshelfBinding.inflate(inflater, container, false)
+        return binding.root
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         view.mBookshelfName.setPadding(edge * 2, 0, edge * 2, 0)
         view.mBookshelfName.setOnClickListener { (activity as? MainActivity)?.openDashboardPage() }
         view.mBookshelfSearch.setOnClickListener { startActivity(SearchActivity::class) }
+        binding.ivAddLocal.setOnClickListener { readLocalBook() }
         view.mBookshelfAccount.updateLayoutParams<RelativeLayout.LayoutParams> { marginEnd = edge * 2 - view.px(6) }
         view.mBookshelfAccount.setOnClickListener { (activity as? MainActivity)?.openDiscoverPage() }
         view.mBookshelfBanner.updateLayoutParams<LinearLayout.LayoutParams> {
@@ -87,6 +122,12 @@ class BookshelfFragment : LifecycleFragment() {
         controller.bookshelfLive.observe(viewLifecycleOwner, Observer { setupBookshelf(it) })
         //书架检查更新
         controller.bookshelfCheckUpdateLiveData.observe(viewLifecycleOwner, Observer { view.mBookshelfFlexibleLayout.finishRefresh() })
+    }
+
+    private fun readLocalBook() {
+        getContent.launch(arrayOf("text/plain"))
+
+
     }
 
     /**
