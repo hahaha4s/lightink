@@ -64,10 +64,9 @@ data class Book(
     var finishedAt: Long = 0L,
     var configuration: Long = 0,
     var createdAt: Long = System.currentTimeMillis(),
-    var version: Int = -1,
-    var isLocal: Boolean = false
+    var version: Int = -1
 ) : Parcelable {
-
+    val isLocal: Boolean  get() = LOCAL_BOOK_AUTHOR.equals(author)
     @Ignore
     @IgnoredOnParcel
     val path = File(BOOK_PATH, objectId)

@@ -139,7 +139,7 @@ class MainController : ViewModel() {
                 Log.i("tag", fileName!!)
 
                 // val file = File(book!!.path, "$MP_FOLDER_TEXTS/${chapter.encodeHref}.md")
-                val bookMetadata = MPMetadata(fileName!!, "local", uri.path!!, state = BOOK_STATE_END)
+                val bookMetadata = MPMetadata(fileName!!, LOCAL_BOOK_AUTHOR, uri.path!!, state = BOOK_STATE_END)
                 //构造图书对象
                 val book = Book(bookMetadata, bookshelf?.id ?: -1L)
                 val content = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
@@ -216,7 +216,6 @@ class MainController : ViewModel() {
             //存储书源
 //            bookSource?.run { File(output, MP_FILENAME_BOOK_SOURCE).writeText(toJson()) }
             //构造图书对象
-            book.isLocal = true
             book.catalog = chapters.size
             book.lastChapter = chapters.last().name
             /*if (URLUtil.isNetworkUrl(baseInfo?.cover ?: metadata.cover)) withContext(Dispatchers.IO) {

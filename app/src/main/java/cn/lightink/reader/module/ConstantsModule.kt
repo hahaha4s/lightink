@@ -52,6 +52,8 @@ const val READER_RESULT_BOOKMARK = 10
 const val TEST_STRING1 = "测试文字"
 const val TEST_STRING2 = "测试\n文字"
 
+const val LOCAL_BOOK_AUTHOR = "local_book_author"
+
 //正则：匹配图片值
 const val REGEX_IMAGE_VALUE = """(?<=\().+(?=\))"""
 //正则：匹配图片注解

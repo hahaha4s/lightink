@@ -15,6 +15,7 @@ object Room {
         database = androidx.room.Room.databaseBuilder(context, AppDatabase::class.java, "canary")
 //                .addMigrations()
                 .allowMainThreadQueries()
+            .createFromAsset("canary")
                 .build()
         initDatabase()
     }
@@ -28,7 +29,7 @@ object Room {
         //默认主题
         if (!theme().isNotEmpty()) theme().insert(THEME_LIGHT, THEME_NIGHT, THEME_SHEEP, THEME_STORY)
         //限制在线书源数量
-        bookSource().remove(*bookSource().limit().toTypedArray())
+//        bookSource().remove(*bookSource().limit().toTypedArray())
     }
 
     /**
