@@ -143,56 +143,59 @@ class MainController : ViewModel() {
                 //构造图书对象
                 val book = Book(bookMetadata, bookshelf?.id ?: -1L)
                 val content = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                val regex = Regex("第[0-9一二三四五六七八九十百千]+[章节卷集部篇回话]\\s+")
+                val regex = Regex("第[0-9一二三四五六七八九十百千]+[章节卷集部篇回话].*\\r\\n")
                 val matches = regex.findAll(content!!)
-                //生成输出目录
-                val output = File(BOOK_PATH, bookMetadata.objectId).only()
-                //生成图片文件夹
-                File(output, MP_FOLDER_IMAGES).mkdirs()
-                //生成章节文件夹
-                val chapterDirectory = File(output, MP_FOLDER_TEXTS).apply { mkdirs() }
-
                 val chaptersCount = matches.count()
-                val chapters = MutableList(chaptersCount) { LocalChapter() }
+                if (chaptersCount > 0) {
+
+                    //生成输出目录
+                    val output = File(BOOK_PATH, bookMetadata.objectId).only()
+                    //生成图片文件夹
+                    File(output, MP_FOLDER_IMAGES).mkdirs()
+                    //生成章节文件夹
+                    val chapterDirectory = File(output, MP_FOLDER_TEXTS).apply { mkdirs() }
+
+                    val chapters = MutableList(chaptersCount) { LocalChapter() }
 
 
-                matches.forEachIndexed { index, matchResult ->
-                    when(index) {
-                        0 -> {
-                            val firstChapter = chapters[0]
-                            firstChapter.name = matchResult.value.trim()
-                            firstChapter.start = matchResult.range.last
+                    matches.forEachIndexed { index, matchResult ->
+                        when(index) {
+                            0 -> {
+                                val firstChapter = chapters[0]
+                                firstChapter.name = matchResult.value.trim()
+                                firstChapter.start = matchResult.range.last
+                            }
+                            chaptersCount - 1 -> {
+                                val previousChapter = chapters[index - 1]
+                                previousChapter.end = matchResult.range.first
+                                previousChapter.content = content.substring(previousChapter.start, previousChapter.end)
+
+                                val currentChapter = chapters[index]
+                                currentChapter.name = matchResult.value.trim()
+                                currentChapter.start = matchResult.range.last
+
+                                currentChapter.content = content.substring(matchResult.range.last)
+                            }
+                            else -> {
+                                val previousChapter = chapters[index - 1]
+                                previousChapter.end = matchResult.range.first
+                                previousChapter.content = content.substring(previousChapter.start, previousChapter.end)
+
+                                val currentChapter = chapters[index]
+                                currentChapter.name = matchResult.value.trim()
+                                currentChapter.start = matchResult.range.last
+
+                            }
                         }
-                        chaptersCount - 1 -> {
-                            val previousChapter = chapters[index - 1]
-                            previousChapter.end = matchResult.range.first
-                            previousChapter.content = content.substring(previousChapter.start, previousChapter.end)
 
-                            val currentChapter = chapters[index]
-                            currentChapter.name = matchResult.value.trim()
-                            currentChapter.start = matchResult.range.last
-
-                            currentChapter.content = content.substring(matchResult.range.last)
-                        }
-                        else -> {
-                            val previousChapter = chapters[index - 1]
-                            previousChapter.end = matchResult.range.first
-                            previousChapter.content = content.substring(previousChapter.start, previousChapter.end)
-
-                            val currentChapter = chapters[index]
-                            currentChapter.name = matchResult.value.trim()
-                            currentChapter.start = matchResult.range.last
-
-                        }
+                    }
+                    for (chapter in chapters) {
+                        val chapterPath = "${chapter.name.encode()}.md"
+                        File(chapterDirectory, chapterPath).apply { createNewFile() }.writeText(chapter.content)
                     }
 
+                    publish(book, bookMetadata, chapters, output, bookshelf)
                 }
-                for (chapter in chapters) {
-                    val chapterPath = "${chapter.name.encode()}.md"
-                    File(chapterDirectory, chapterPath).apply { createNewFile() }.writeText(chapter.content)
-                }
-
-                publish(book, bookMetadata, chapters, output, bookshelf)
             }
         }
     }
@@ -231,6 +234,7 @@ class MainController : ViewModel() {
 //            Room.bookSource().get(if (bookSource?.url?.startsWith("http") == true) Uri.parse(bookSource?.url)?.host.orEmpty() else bookSource?.url.orEmpty())?.run { Room.bookSource().update(this.apply { frequency += 1 }) }
         } catch (e: Exception) {
             //防止写入文件时因缓存删除报错
+            e.printStackTrace()
         }
     }
 }
