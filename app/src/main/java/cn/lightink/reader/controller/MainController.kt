@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cn.lightink.reader.BOOK_PATH
 import cn.lightink.reader.ktx.encode
+import cn.lightink.reader.ktx.md5
 import cn.lightink.reader.ktx.only
 import cn.lightink.reader.ktx.toJson
 import cn.lightink.reader.model.Book
@@ -190,7 +191,7 @@ class MainController : ViewModel() {
 
                     }
                     for (chapter in chapters) {
-                        val chapterPath = "${chapter.name.encode()}.md"
+                        val chapterPath = "${chapter.name.encode().let { if (it.length < 85) it else it.md5() }}.md"
                         File(chapterDirectory, chapterPath).apply { createNewFile() }.writeText(chapter.content)
                     }
 
