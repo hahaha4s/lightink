@@ -21,7 +21,10 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import org.mozilla.universalchardet.UniversalDetector
 import java.io.File
+import java.io.InputStream
+import java.nio.charset.Charset
 
 class MainController : ViewModel() {
 
@@ -143,8 +146,13 @@ class MainController : ViewModel() {
                 val bookMetadata = MPMetadata(fileName!!, LOCAL_BOOK_AUTHOR, uri.path!!, state = BOOK_STATE_END)
                 //构造图书对象
                 val book = Book(bookMetadata, bookshelf?.id ?: -1L)
-                val content = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                val regex = Regex("第[0-9一二三四五六七八九十百千]+[章节卷集部篇回话].*\\r\\n")
+                val openInputStream = context.contentResolver.openInputStream(uri)
+
+                val charset = detectFileEncoding(openInputStream)
+                Log.i("tag", charset.toString())
+
+                val content = openInputStream?.bufferedReader(charset ?: Charsets.UTF_8)?.use { it.readText() }
+                val regex = Regex("第[0-9一二三四五六七八九十百千]+[幕章节卷集部篇回话].*\\r\\n")
                 val matches = regex.findAll(content!!)
                 val chaptersCount = matches.count()
                 if (chaptersCount > 0) {
@@ -199,6 +207,19 @@ class MainController : ViewModel() {
                 }
             }
         }
+    }
+
+    fun detectFileEncoding(inputStream: InputStream?): Charset? {
+        if (inputStream == null) return null
+        val byteBuffer = ByteArray(4096)
+        inputStream.read(byteBuffer)
+
+        val detector = UniversalDetector(null)
+        detector.handleData(byteBuffer, 0, byteBuffer.size)
+        detector.dataEnd()
+
+        val charsetName = detector.detectedCharset
+        return charsetName?.let { Charset.forName(it) } ?: Charset.defaultCharset()
     }
 
 
