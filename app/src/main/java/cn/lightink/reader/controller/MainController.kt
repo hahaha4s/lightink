@@ -152,7 +152,7 @@ class MainController : ViewModel() {
                 Log.i("tag", charset.toString())
 
                 val content = openInputStream?.bufferedReader(charset ?: Charsets.UTF_8)?.use { it.readText() }
-                val regex = Regex("第[0-9一二三四五六七八九十百千]+[幕章节卷集部篇回话].*\\r\\n")
+                val regex = Regex("第[0-9一二三四五六七八九十百千]+[幕章节卷集部篇回话]\\s+.*\\r\\n")
                 val matches = regex.findAll(content!!)
                 val chaptersCount = matches.count()
                 if (chaptersCount > 0) {
