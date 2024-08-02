@@ -26,9 +26,8 @@ jobs:
           cache: 'gradle'
 
       - name: Gradle Build Action
-        uses: gradle/gradle-build-action@v3.5.0
+        uses: gradle/gradl-action@v3
         with:
-          gradle-version: current
           arguments: assembleRelease
       - name: Sign Android release 2
         uses: ilharp/sign-android-release@v1.0.4 
