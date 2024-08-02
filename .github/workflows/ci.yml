@@ -1,4 +1,4 @@
-jobs:name: android_build
+name: android_build
 
 on:
   workflow_dispatch:
