@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-java@v4.2.1
         with:
           distribution: 'zulu' # See 'Supported distributions' for available options
-          java-version: '21'
+          java-version: '11'
           cache: 'gradle'
 
       - name: Gradle Build Action
@@ -30,8 +30,6 @@ jobs:
         with:
           gradle-version: current
           arguments: assembleRelease
-
-
       - name: Sign Android release 2
         uses: ilharp/sign-android-release@v1.0.4 
         id: sign_app
