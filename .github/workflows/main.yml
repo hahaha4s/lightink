@@ -24,7 +24,6 @@ jobs:
           distribution: 'zulu' # See 'Supported distributions' for available options
           cache: 'gradle'
 
-      - uses: gradle/gradle-build-action@main
       - name: Gradle Build Action
         uses: gradle/gradle-build-action@v3.5.0
         with:
@@ -45,8 +44,8 @@ jobs:
 
 
       # Noted For Output [main_project_module]/build/outputs/apk/release/
-      - name: Upload APK Release - ${{ env.repository_name }}
-        uses: actions/upload-artifact@main
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v4.3.4
         with:
           name: ${{ env.date_today }} - Nap511 release generated
           path: ${{steps.sign_app.outputs.signedFile}}
